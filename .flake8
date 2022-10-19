@@ -1,0 +1,19 @@
+[flake8]
+ignore = E203, E266, E501, W503, F403, F401
+max-line-length = 100
+max-complexity = 18
+select = B,C,E,F,W,T4,B9
+
+# Provide a comma-separated list of glob patterns to exclude from checks.
+exclude =
+    # git folder
+    .git,
+    # python cache
+    __pycache__,
+    # pytest cache
+    .pytest_cache,
+    # mypy cache
+    .mypy_cache
+# Provide a comma-separate list of glob patterns to include for checks.
+filename =
+    *.py

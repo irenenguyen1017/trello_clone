@@ -5,7 +5,8 @@ from flask_marshmallow import Marshmallow
 from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
-app.config ['JSON_SORT_KEYS'] = False # combined with `ordered = True` to make the names of the keys sorted in the correct setting order.
+# combined with `ordered = True` to make the names of the keys sorted in the correct setting order.
+app.config["JSON_SORT_KEYS"] = False
 
 ##### Set the database URI via SQLAlchemycome.
 # protocal + adapter  user_name : password @localhost:port/database_name

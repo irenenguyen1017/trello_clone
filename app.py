@@ -1,9 +1,12 @@
 from datetime import date
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_bcrypt import Bcrypt
 from flask_marshmallow import Marshmallow
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.exc import (
+    IntegrityError,  # Avoid HTML sending back an error that includes the hash password when the user uses the existing email.
+)
 
 app = Flask(__name__)
 # combined with `ordered = True` to make the names of the keys sorted in the correct setting order.
@@ -40,7 +43,7 @@ class User(db.Model):
 
 class UserSchema(ma.Schema):
     class Meta:  # Enables providing Meta information for the schema to marshmallow.
-        fields = ("id", "name", "email", "is_admin")
+        fields = ("id", "name", "email", "password", "is_admin")
 
 
 class Card(db.Model):
@@ -133,6 +136,30 @@ def seed_db():
     db.session.add_all(users)
     db.session.commit()
     print("Tables seeded")
+
+
+@app.route("/auth/register/", methods=["POST"])
+def auth_register():
+    try:
+        # print(request.json)
+        # return ""
+
+        ## Load the posted user info and parse the JSON
+        user_info = UserSchema().load(request.json)
+        ## Create a new user model instance from the user_info
+        user = User(
+            email=user_info["email"],
+            password=bcrypt.generate_password_hash(user_info["password"]).decode("utf8"),
+            name=user_info["name"],
+        )
+
+        ## Add and commit user to DB
+        db.session.add(user)
+        db.session.commit()
+        # Respond to client
+        return UserSchema(exclude=["password"]).dump(user), 201
+    except IntegrityError:
+        return {"error": "Email address already in use"}, 409
 
 
 # @app.cli.command("all_cards")

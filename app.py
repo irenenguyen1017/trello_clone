@@ -1,6 +1,7 @@
 from datetime import date
 
 from flask import Flask, jsonify
+from flask_bcrypt import Bcrypt
 from flask_marshmallow import Marshmallow
 from flask_sqlalchemy import SQLAlchemy
 
@@ -17,11 +18,29 @@ app.config[
 # create the database object
 db = SQLAlchemy(app)
 ma = Marshmallow(app)
+bcrypt = Bcrypt(app)
 
 # print(repr(db))
 # print(db.__dict__)
 
 # Object represents the database type
+
+
+class User(db.Model):
+    __tablename__ = "users"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String)
+    email = db.Column(db.String, nullable=False, unique=True)  # Users must have an email address.
+    password = db.Column(db.String, nullable=False)
+    is_admin = db.Column(
+        db.Boolean, default=False
+    )  # The default is for non-admin users. That means unless I explicitly say admin is True, it will be False.
+
+
+class UserSchema(ma.Schema):
+    class Meta:  # Enables providing Meta information for the schema to marshmallow.
+        fields = ("id", "name", "email", "is_admin")
 
 
 class Card(db.Model):
@@ -64,7 +83,22 @@ def drop_db():
 
 @app.cli.command("seed")
 def seed_db():
-    card = [
+    users = [
+        User(
+            email="admin@spam.com",
+            # password="eggs",
+            password=bcrypt.generate_password_hash("eggs").decode("utf-8"),
+            is_admin=True,
+        ),
+        User(
+            name="John Cleese",
+            email="someone@spam.com",
+            # password="12345"
+            password=bcrypt.generate_password_hash("12345").decode("utf-8"),
+        ),
+    ]
+
+    cards = [
         Card(
             title="Start the project",
             description="Stage 1 - Create the database",
@@ -95,7 +129,8 @@ def seed_db():
         ),
     ]
 
-    db.session.add(card)
+    db.session.add_all(cards)
+    db.session.add_all(users)
     db.session.commit()
     print("Tables seeded")
 
@@ -142,7 +177,7 @@ def seed_db():
 def all_cards():
     stmt = db.select(Card).order_by(Card.priority.desc(), Card.title)
     cards = db.session.scalars(stmt)
-    return CardSchema(many=True).dump(cards)
+    return CardSchema(many=True).dump(cards)  # `dump` helps convert to json format
 
 
 @app.cli.command("first_card")

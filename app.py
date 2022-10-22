@@ -160,18 +160,20 @@ def auth_register():
     except IntegrityError:
         return {"error": "Email address already in use"}, 409
 
-@app.route('/auth/login/', methods=['POST'])
+
+@app.route("/auth/login/", methods=["POST"])
 def auth_login():
     # Find a user by email address
-    stmt = db.select(User).filter_by(email=request.json['email']) 
+    stmt = db.select(User).filter_by(email=request.json["email"])
     # Equivalent to:
     # stmt= db.select(User).where(User.email == request.json['email'])
     user = db.session.scalar(stmt)
     # If user exists and password is correct
-    if user and bcrypt.check_password_hash(user.password, request.json['password']):
-        return UserSchema(exclude=['password']).dump(user)
+    if user and bcrypt.check_password_hash(user.password, request.json["password"]):
+        return UserSchema(exclude=["password"]).dump(user)
     else:
-        return {'error': 'Invalid email or password'}, 401
+        return {"error": "Invalid email or password"}, 401
+
 
 # @app.cli.command("all_cards")
 # def all_cards():

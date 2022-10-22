@@ -2,7 +2,12 @@ from datetime import date, timedelta
 
 from flask import Flask, jsonify, request
 from flask_bcrypt import Bcrypt
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required
+from flask_jwt_extended import (
+    JWTManager,
+    create_access_token,
+    get_jwt_identity,
+    jwt_required,
+)
 from flask_marshmallow import Marshmallow
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.exc import (
@@ -73,6 +78,13 @@ class CardSchema(ma.Schema):
         )
 
         ordered = True
+
+
+def authorize():
+    user_id = get_jwt_identity()
+    stmt = db.select(User).filter_by(id=user_id)
+    user = db.session.scalar(stmt)
+    return user.is_admin
 
 
 # Define a custom CLI (terminal) command that can use wirh the Flask program
@@ -222,6 +234,8 @@ def auth_login():
 @app.route("/cards/")
 @jwt_required()  # decrypt the token
 def all_cards():
+    if not authorize():
+        return {"error": "You must be an admin"}, 401
     stmt = db.select(Card).order_by(Card.priority.desc(), Card.title)
     cards = db.session.scalars(stmt)
     return CardSchema(many=True).dump(cards)  # `dump` helps convert to json format

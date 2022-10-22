@@ -176,7 +176,7 @@ def auth_login():
     if user and bcrypt.check_password_hash(user.password, request.json["password"]):
         # return UserSchema(exclude=["password"]).dump(user)
         token = create_access_token(identity=str(user.id), expires_delta=timedelta(days=1))
-        return {'email': user.email, 'token': token, 'is_admin': user.is_admin}
+        return {"email": user.email, "token": token, "is_admin": user.is_admin}
     else:
         return {"error": "Invalid email or password"}, 401
 
@@ -220,7 +220,7 @@ def auth_login():
 
 
 @app.route("/cards/")
-@jwt_required() # decrypt the token
+@jwt_required()  # decrypt the token
 def all_cards():
     stmt = db.select(Card).order_by(Card.priority.desc(), Card.title)
     cards = db.session.scalars(stmt)

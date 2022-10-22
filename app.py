@@ -1,7 +1,13 @@
-from datetime import date
+from datetime import date, timedelta
 
 from flask import Flask, jsonify, request
 from flask_bcrypt import Bcrypt
+from flask_jwt_extended import (
+    JWTManager,
+    create_access_token,
+    get_jwt_identity,
+    jwt_required,
+)
 from flask_marshmallow import Marshmallow
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.exc import (
@@ -18,10 +24,13 @@ app.config[
     "SQLALCHEMY_DATABASE_URI"
 ] = "postgresql+psycopg2://trello_dev:password123@127.0.0.1:5432/trello"
 
+app.config["JWT_SECRET_KEY"] = "hello there"
+
 # create the database object
 db = SQLAlchemy(app)
 ma = Marshmallow(app)
 bcrypt = Bcrypt(app)
+jwt = JWTManager(app)
 
 # print(repr(db))
 # print(db.__dict__)
@@ -69,6 +78,13 @@ class CardSchema(ma.Schema):
         )
 
         ordered = True
+
+
+def authorize():
+    user_id = get_jwt_identity()
+    stmt = db.select(User).filter_by(id=user_id)
+    user = db.session.scalar(stmt)
+    return user.is_admin
 
 
 # Define a custom CLI (terminal) command that can use wirh the Flask program
@@ -140,10 +156,9 @@ def seed_db():
 
 @app.route("/auth/register/", methods=["POST"])
 def auth_register():
+    # print(request.json)
+    # return ""
     try:
-        # print(request.json)
-        # return ""
-
         ## Load the posted user info and parse the JSON
         user_info = UserSchema().load(request.json)
         ## Create a new user model instance from the user_info
@@ -160,6 +175,22 @@ def auth_register():
         return UserSchema(exclude=["password"]).dump(user), 201
     except IntegrityError:
         return {"error": "Email address already in use"}, 409
+
+
+@app.route("/auth/login/", methods=["POST"])
+def auth_login():
+    # Find a user by email address
+    stmt = db.select(User).filter_by(email=request.json["email"])
+    # Equivalent to:
+    # stmt= db.select(User).where(User.email == request.json['email'])
+    user = db.session.scalar(stmt)
+    # If user exists and password is correct
+    if user and bcrypt.check_password_hash(user.password, request.json["password"]):
+        # return UserSchema(exclude=["password"]).dump(user)
+        token = create_access_token(identity=str(user.id), expires_delta=timedelta(days=1))
+        return {"email": user.email, "token": token, "is_admin": user.is_admin}
+    else:
+        return {"error": "Invalid email or password"}, 401
 
 
 # @app.cli.command("all_cards")
@@ -201,7 +232,10 @@ def auth_register():
 
 
 @app.route("/cards/")
+@jwt_required()  # decrypt the token
 def all_cards():
+    if not authorize():
+        return {"error": "You must be an admin"}, 401
     stmt = db.select(Card).order_by(Card.priority.desc(), Card.title)
     cards = db.session.scalars(stmt)
     return CardSchema(many=True).dump(cards)  # `dump` helps convert to json format
@@ -227,5 +261,4 @@ def count_ongoing():
 
 @app.route("/")
 def index():
-    print("test")
     return "Hello World!"

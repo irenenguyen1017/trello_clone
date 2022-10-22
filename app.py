@@ -1,7 +1,8 @@
-from datetime import date
+from datetime import date, timedelta
 
 from flask import Flask, jsonify, request
 from flask_bcrypt import Bcrypt
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required
 from flask_marshmallow import Marshmallow
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.exc import (
@@ -18,10 +19,13 @@ app.config[
     "SQLALCHEMY_DATABASE_URI"
 ] = "postgresql+psycopg2://trello_dev:password123@127.0.0.1:5432/trello"
 
+app.config["JWT_SECRET_KEY"] = "hello there"
+
 # create the database object
 db = SQLAlchemy(app)
 ma = Marshmallow(app)
 bcrypt = Bcrypt(app)
+jwt = JWTManager(app)
 
 # print(repr(db))
 # print(db.__dict__)
@@ -170,7 +174,9 @@ def auth_login():
     user = db.session.scalar(stmt)
     # If user exists and password is correct
     if user and bcrypt.check_password_hash(user.password, request.json["password"]):
-        return UserSchema(exclude=["password"]).dump(user)
+        # return UserSchema(exclude=["password"]).dump(user)
+        token = create_access_token(identity=str(user.id), expires_delta=timedelta(days=1))
+        return {'email': user.email, 'token': token, 'is_admin': user.is_admin}
     else:
         return {"error": "Invalid email or password"}, 401
 
@@ -214,6 +220,7 @@ def auth_login():
 
 
 @app.route("/cards/")
+@jwt_required() # decrypt the token
 def all_cards():
     stmt = db.select(Card).order_by(Card.priority.desc(), Card.title)
     cards = db.session.scalars(stmt)
@@ -240,5 +247,4 @@ def count_ongoing():
 
 @app.route("/")
 def index():
-    print("test")
     return "Hello World!"
